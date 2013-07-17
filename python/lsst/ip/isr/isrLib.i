@@ -76,18 +76,14 @@ Python bindings for lsst::ip::isr Instrument Signature Removal code
 %template(fitOverscanImage) lsst::ip::isr::fitOverscanImage<float, double>;
 %template(fitOverscanImage) lsst::ip::isr::fitOverscanImage<double, double>;
 
-
-%define %instantiateUNC(TYPE, PIXELTYPE)
-%newobject makeUnmaskedNanCounter;
-%template(UnmaskedNanCounter##TYPE) lsst::ip::isr::UnmaskedNanCounter<PIXELTYPE>;
-%template(makeUnmaskedNanCounter) lsst::ip::isr::makeUnmaskedNanCounter<PIXELTYPE>;
-%enddef
-
-%instantiateUNC(F, float);
-%instantiateUNC(D, double);
-%instantiateUNC(I, int);
-%instantiateUNC(U, boost::uint16_t);
-
+%template(UnmaskedNanCounterF)
+    lsst::ip::isr::UnmaskedNanCounter<float>;
+%template(UnmaskedNanCounterD)
+    lsst::ip::isr::UnmaskedNanCounter<double>; 
+%template(UnmaskedNanCounterI)
+    lsst::ip::isr::UnmaskedNanCounter<int>;
+%template(UnmaskedNanCounterU)
+    lsst::ip::isr::UnmaskedNanCounter<boost::uint16_t>; 
 /******************************************************************************/
 // Local Variables: ***
 // eval: (setq indent-tabs-mode nil) ***

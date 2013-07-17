@@ -198,14 +198,10 @@ namespace isr {
         typedef typename lsst::afw::image::MaskedImage<PixelT>::x_iterator x_iterator;
 
         UnmaskedNanCounter() :
-            _npix(0),
-            _bpMask(lsst::afw::image::Mask<lsst::afw::image::MaskPixel>::getPlaneBitMask("BAD")),
-            _unpMask(0)
-        {
-            std::string const unmaskedNan = "UNMASKEDNAN"; // Additional bit plane to set
-            lsst::afw::image::Mask<lsst::afw::image::MaskPixel>::addMaskPlane(unmaskedNan);
-            _unpMask = lsst::afw::image::Mask<lsst::afw::image::MaskPixel>::getPlaneBitMask(unmaskedNan);
-        }
+        _npix(0),
+        _bpMask(lsst::afw::image::Mask<lsst::afw::image::MaskPixel>::getPlaneBitMask("BAD")),
+        _unpMask(lsst::afw::image::Mask<lsst::afw::image::MaskPixel>::getPlaneBitMask("UNMASKEDNAN"))
+        {};
 
         virtual ~UnmaskedNanCounter() {};
 
@@ -215,8 +211,7 @@ namespace isr {
             reset();
             for (int y = 0; y != mi.getHeight(); ++y) {
                 for (x_iterator ptr = mi.row_begin(y), end = mi.row_end(y); ptr != end; ++ptr) {
-                    if (!((ptr.mask() & _bpMask)) && (!lsst::utils::lsst_isfinite(ptr.image()) ||
-                                                      !lsst::utils::lsst_isfinite(ptr.variance()))) {
+                    if (!(((*ptr).mask() & _bpMask)) && !(lsst::utils::lsst_isfinite((*ptr).image()))) {
                         _npix += 1;
                         (ptr).mask() |= _unpMask;
                         (ptr).mask() |= _bpMask;
@@ -231,11 +226,6 @@ namespace isr {
         lsst::afw::image::MaskPixel _bpMask;
         lsst::afw::image::MaskPixel _unpMask;
     }; 
-
-    template <typename PixelT>
-    UnmaskedNanCounter<PixelT> makeUnmaskedNanCounter(lsst::afw::image::MaskedImage<PixelT>) {
-        return UnmaskedNanCounter<PixelT>();
-    }
 
     template<typename ImagePixelT, typename FunctionT>
     void fitOverscanImage(
