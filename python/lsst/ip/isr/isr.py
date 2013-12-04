@@ -365,7 +365,8 @@ def trimAmp(exposure, trimBbox=None):
     # n.b. what other changes are needed here?
     # e.g. wcs info, overscan, etc
 
-def overscanCorrection(ampMaskedImage, overscanImage, fitType='MEDIAN', polyOrder=1, collapseRej=3.0):
+def overscanCorrection(ampMaskedImage, overscanImage, fitType='MEDIAN', polyOrder=1, collapseRej=3.0,
+                       statControl=None):
     """Apply overscan correction in place
 
     @param[in,out]  ampMaskedImage  masked image to correct
@@ -380,14 +381,22 @@ def overscanCorrection(ampMaskedImage, overscanImage, fitType='MEDIAN', polyOrde
     @param[in]      polyOrder       polynomial order or spline knots (ignored unless fitType
                                     indicates a polynomial or spline)
     @param[in]      collapseRej     Rejection threshold (sigma) for collapsing dimension of overscan
+    @param[in]      statControl     Statistics control object
     """
     ampImage = ampMaskedImage.getImage()
+    if statControl is None:
+        statControl = afwMath.StatisticsControl()
     if fitType == 'MEAN':
-        offImage = afwMath.makeStatistics(overscanImage, afwMath.MEAN).getValue(afwMath.MEAN)
+        offImage = afwMath.makeStatistics(overscanImage, afwMath.MEAN, statControl).getValue(afwMath.MEAN)
     elif fitType == 'MEDIAN':
-        offImage = afwMath.makeStatistics(overscanImage, afwMath.MEDIAN).getValue(afwMath.MEDIAN)
+        offImage = afwMath.makeStatistics(overscanImage, afwMath.MEDIAN, statControl).getValue(afwMath.MEDIAN)
     elif fitType in ('POLY', 'CHEB', 'LEG', 'NATURAL_SPLINE', 'CUBIC_SPLINE', 'AKIMA_SPLINE'):
-        biasArray = overscanImage.getArray()
+        if hasattr(overscanImage, "getImage"):
+            biasArray = overscanImage.getImage().getArray()
+            biasArray = numpy.ma.masked_where(overscanImage.getMask().getArray() & statControl.getAndMask(),
+                                              biasArray)
+        else:
+            biasArray = overscanImage.getArray()
         # Fit along the long axis, so collapse along each short row and fit the resulting array
         shortInd = numpy.argmin(biasArray.shape)
         if shortInd == 0:
@@ -423,7 +432,7 @@ def overscanCorrection(ampMaskedImage, overscanImage, fitType='MEDIAN', polyOrde
             # An afw interpolation
             numBins = polyOrder
             values, binEdges = numpy.histogram(indices, bins=numBins, weights=medianBiasArr)
-            numPerBin, _ = numpy.histogram(indices, bins=numBins, weights=numpy.ones_like(medianBiasArr))
+            numPerBin, _ = numpy.histogram(indices, bins=numBins, weights=1-medianBiasArr.mask.astype(int))
             binCenters = 0.5*(binEdges[:-1] + binEdges[1:])
             fitBiasArr = afwMath.vectorD(num)
             interp = afwMath.makeInterpolate(tuple(binCenters.astype(float)),
