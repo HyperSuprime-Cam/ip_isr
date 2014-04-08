@@ -433,7 +433,20 @@ def overscanCorrection(ampMaskedImage, overscanImage, fitType='MEDIAN', polyOrde
             # An afw interpolation
             numBins = polyOrder
             values, binEdges = numpy.histogram(indices, bins=numBins, weights=medianBiasArr)
-            numPerBin, _ = numpy.histogram(indices, bins=numBins, weights=1-medianBiasArr.mask.astype(int))
+            #
+            # numpy.histogram needs a real array for the mask, but numpy.ma "optimises" the case
+            # no-values-are-masked by replacing the mask array by a scalar, numpy.ma.nomask
+            #
+            # Issue DM-415
+            #
+            medianBiasArrMask = medianBiasArr.mask
+            try:
+                if medianBiasArrMask == numpy.ma.nomask:
+                    medianBiasArrMask = numpy.array(len(medianBiasArr)*[numpy.ma.nomask])
+            except ValueError:      # If medianBiasArrMask is an array the test fails [needs .all()]
+                pass
+
+            numPerBin, _ = numpy.histogram(indices, bins=numBins, weights=1 - medianBiasArrMask.astype(int))
             binCenters = 0.5*(binEdges[:-1] + binEdges[1:])
             fitBiasArr = afwMath.vectorD(num)
             interp = afwMath.makeInterpolate(binCenters.astype(float),
