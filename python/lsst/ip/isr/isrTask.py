@@ -428,7 +428,7 @@ class IsrTask(pipeBase.CmdLineTask):
                 defectList = isr.transposeDefectList(nanDefectList)
                 isr.interpolateDefectList(
                     maskedImage = maskedImage,
-                    defectList = nanDefectList,
+                    defectList = defectList,
                     fwhm = self.config.fwhm,
                 )
                 maskedImage = isr.transposeMaskedImage(maskedImage)
