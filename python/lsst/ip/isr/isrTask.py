@@ -144,7 +144,8 @@ class IsrTaskConfig(pexConfig.Config):
         default = False,
         doc = "Assemble detrend/calibration frames?"
         )
-    
+    fallbackFilterName = pexConfig.Field(dtype=str, doc="Fallback default filter name for calibrations",
+                                         optional=True)
     
 class IsrTask(pipeBase.CmdLineTask):
     ConfigClass = IsrTaskConfig
@@ -312,7 +313,11 @@ class IsrTask(pipeBase.CmdLineTask):
         try:
             exp = dataRef.get(detrend, immediate=immediate)
         except Exception, e:
-            raise RuntimeError("Unable to retrieve %s for %s: %s" % (detrend, dataRef.dataId, e))
+            try:
+                exp = dataRef.get(detrend, filter=self.config.fallbackFilterName, immediate=immediate)
+                self.log.warn("Using fallback calibration from filter %s" % self.config.fallbackFilterName)
+            except:
+                raise RuntimeError("Unable to retrieve %s for %s: %s" % (detrend, dataRef.dataId, e))
         if self.config.doAssembleDetrends:
             exp = self.assembleCcd.assembleCcd(exp)
         return exp
