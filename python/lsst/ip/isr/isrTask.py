@@ -326,13 +326,14 @@ class IsrTask(pipeBase.CmdLineTask):
         if not self.checkIsAmp(amp):
             raise RuntimeError("This method must be executed on an amp.")
         maskedImage = exposure.getMaskedImage()
-        dataView = maskedImage.Factory(maskedImage, amp.getDiskDataSec(), afwImage.PARENT)
-        isr.makeThresholdMask(
-            maskedImage = dataView,
-            threshold = amp.getElectronicParams().getSaturationLevel(),
-            growFootprints = 0,
-            maskName = self.config.saturatedMaskName,
-        )
+        for box in (amp.getDiskDataSec(), amp.getBiasSec()):
+            dataView = maskedImage.Factory(maskedImage, box, afwImage.PARENT)
+            isr.makeThresholdMask(
+                maskedImage = dataView,
+                threshold = amp.getElectronicParams().getSaturationLevel(),
+                growFootprints = 0,
+                maskName = self.config.saturatedMaskName,
+            )
 
     def saturationInterpolation(self, ccdExposure):
         """Interpolate over saturated pixels, in place
