@@ -326,7 +326,7 @@ class IsrTask(pipeBase.CmdLineTask):
         if not self.checkIsAmp(amp):
             raise RuntimeError("This method must be executed on an amp.")
         maskedImage = exposure.getMaskedImage()
-        for box in (amp.getDiskDataSec(), amp.getBiasSec()):
+        for box in (amp.getDiskDataSec(), amp.getDiskBiasSec()):
             dataView = maskedImage.Factory(maskedImage, box, afwImage.PARENT)
             isr.makeThresholdMask(
                 maskedImage = dataView,
