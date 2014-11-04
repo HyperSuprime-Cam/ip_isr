@@ -28,6 +28,8 @@ from . import isr
 from .isrLib import maskNans
 from .assembleCcdTask import AssembleCcdTask
 from .fringe import FringeTask
+import lsst.afw.geom as afwGeom
+from lsst.afw.geom.polygon import Polygon
 
 class IsrTaskConfig(pexConfig.Config):
     doBias = pexConfig.Field(
@@ -462,3 +464,9 @@ class IsrTask(pipeBase.CmdLineTask):
             polyOrder = self.config.overscanPolyOrder,
             collapseRej = self.config.overscanRej,
         )
+
+    def getCcdFpPolygon(self, ccd):
+        """Create a polygon in focal plane coordinates of the corners"""
+        corners = ccd.getAllPixels().getCorners()
+        fpCorners = [ccd.getPositionFromPixel(afwGeom.Point2D(i)).getMm() for i in corners]
+        return Polygon(fpCorners)
