@@ -28,6 +28,9 @@ from . import isr
 from .isrLib import maskNans
 from .assembleCcdTask import AssembleCcdTask
 from .fringe import FringeTask
+import lsst.afw.geom as afwGeom
+import lsst.afw.cameraGeom as afwCG
+from lsst.afw.geom.polygon import Polygon
 
 class IsrTaskConfig(pexConfig.Config):
     doBias = pexConfig.Field(
@@ -462,3 +465,24 @@ class IsrTask(pipeBase.CmdLineTask):
             polyOrder = self.config.overscanPolyOrder,
             collapseRej = self.config.overscanRej,
         )
+
+    def setValidPolygonIntersect(self, ccdExposure, fpPolygon):
+        """Set the valid polygon as the intersection of fpPolygon and the ccd corners
+
+        @param[in,out]  exposure    exposure to process
+        @param[in]      fpPolygon   Polygon in focal plane coordinates
+        """
+
+        # Get ccd corners in focal plane coordinates
+        ccd = cameraGeom.cast_Ccd(ccdExposure.getDetector())
+        corners = ccd.getAllPixels().getCorners()
+        fpCorners = [ccd.getPositionFromPixel(afwGeom.Point2D(i)).getMm() for i in corners]
+        ccdPolygon = Polygon(fpCorners)
+
+        # Get intersection of ccd corners with fpPolygon
+        intersect = ccdPolygon.intersectionSingle(fpPolygon)
+
+        # Transform back to pixel positions and build new polygon
+        ccdPoints = [ccd.getPixelFromPosition(afwCG.FpPoint(x)) for x in intersect]
+        validPolygon = Polygon(ccdPoints)
+        ccdExposure.getInfo().setValidPolygon(validPolygon)
