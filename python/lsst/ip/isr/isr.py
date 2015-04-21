@@ -448,7 +448,6 @@ def overscanCorrection(ampMaskedImage, overscanImage, fitType='MEDIAN', polyOrde
 
             numPerBin, _ = numpy.histogram(indices, bins=numBins, weights=1 - medianBiasArrMask.astype(int))
             binCenters = 0.5*(binEdges[:-1] + binEdges[1:])
-            fitBiasArr = afwMath.vectorD(num)
             interp = afwMath.makeInterpolate(binCenters.astype(float),
                                              (values/numPerBin).astype(float),
                                              afwMath.stringToInterpStyle(fitType))
