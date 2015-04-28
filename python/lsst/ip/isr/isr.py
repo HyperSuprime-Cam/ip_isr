@@ -448,9 +448,8 @@ def overscanCorrection(ampMaskedImage, overscanImage, fitType='MEDIAN', polyOrde
 
             numPerBin, _ = numpy.histogram(indices, bins=numBins, weights=1 - medianBiasArrMask.astype(int))
             binCenters = 0.5*(binEdges[:-1] + binEdges[1:])
-            fitBiasArr = afwMath.vectorD(num)
-            interp = afwMath.makeInterpolate(binCenters.astype(float),
-                                             (values/numPerBin).astype(float),
+            interp = afwMath.makeInterpolate(binCenters.astype(float)[numPerBin > 0],
+                                             (values/numPerBin).astype(float)[numPerBin > 0],
                                              afwMath.stringToInterpStyle(fitType))
             fitBiasArr = numpy.array([interp.interpolate(i) for i in indices])
 
@@ -479,6 +478,27 @@ def overscanCorrection(ampMaskedImage, overscanImage, fitType='MEDIAN', polyOrde
             offArray[:,:] = fitBiasArr[:,numpy.newaxis]
         else:
             offArray[:,:] = fitBiasArr[numpy.newaxis,:]
+
+        # We don't trust any extrapolation: mask those pixels as SUSPECT
+        mask = ampMaskedImage.getMask()
+        maskArray = mask.getArray() if shortInd == 1 else mask.getArray().transpose()
+        suspect = mask.getPlaneBitMask("SUSPECT")
+        try:
+            if medianBiasArr.mask == numpy.ma.nomask:
+                # There is no mask, so the whole array is fine
+                pass
+        except ValueError:      # If medianBiasArr.mask is an array the test fails [needs .all()]
+            for low in xrange(num):
+                if not medianBiasArr.mask[low]:
+                    break
+            if low > 0:
+                maskArray[:low,:] |= suspect
+            for high in xrange(1, num):
+                if not medianBiasArr.mask[-high]:
+                    break
+            if high > 1:
+                maskArray[-high:,:] |= suspect
+
     else:
         raise pexExcept.LsstException, '%s : %s an invalid overscan type' % \
             ("overscanCorrection", fitType)
