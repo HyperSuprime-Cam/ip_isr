@@ -213,13 +213,8 @@ def getDefectListFromMask(maskedImage, maskName, growFootprints=1):
     @param[in]      growFootprints  amount by which to grow footprints of detected regions
     """
     mask = maskedImage.getMask()
-    workmask = afwImage.MaskU(mask, True)
-    workmask &= mask.getPlaneBitMask(maskName)
-    thresh = afwDetection.Threshold(0.5)
-    maskimg = afwImage.ImageU(workmask.getBBox(afwImage.PARENT))
-    maskimg <<= workmask
-    ds = afwDetection.FootprintSet(maskimg, thresh)
-    fpList = ds.getFootprints()
+    thresh = afwDetection.Threshold(mask.getPlaneBitMask(maskName), afwDetection.Threshold.BITMASK)
+    fpList = afwDetection.FootprintSet(mask, thresh).getFootprints()
     return defectListFromFootprintList(fpList, growFootprints)
 
 def makeThresholdMask(maskedImage, threshold, growFootprints=1, maskName = 'SAT'):
