@@ -83,7 +83,7 @@ class FringeTask(Task):
 
         if not self.checkFilter(exposure):
             return
-        fringes = self.readFringes(dataRef, assembler=assembler)
+        fringes = self.readFringes(dataRef, assembler=assembler, mask=exposure.getMaskedImage().getMask())
         expFringes = self.measureExposure(exposure, fringes.positions, title="Science")
         solution = self.solve(expFringes, fringes.fluxes)
         self.subtract(exposure, fringes.fringes, solution)
@@ -94,7 +94,7 @@ class FringeTask(Task):
         """Check whether we should fringe-subtract the science exposure"""
         return exposure.getFilter().getName() in self.config.filters
 
-    def readFringes(self, dataRef, assembler=None):
+    def readFringes(self, dataRef, assembler=None, mask=None):
         """Read the fringe frame(s) and measure fringe amplitudes.
 
         The current implementation assumes only a single fringe frame and
@@ -105,6 +105,7 @@ class FringeTask(Task):
 
         @param dataRef     Data reference for the science exposure
         @param assembler   An instance of AssembleCcdTask (for assembling fringe frames)
+        @param mask        Mask to apply to fringe frame
         @return Struct(fringes: list of fringe frames;
                        fluxes: fringe amplitues;
                        positions: array of (x,y) for fringe amplitude measurements)
@@ -118,6 +119,8 @@ class FringeTask(Task):
             raise RuntimeError("Unable to retrieve fringe for %s: %s" % (dataRef.dataId, e))
         if assembler is not None:
             fringe = assembler.assembleCcd(fringe)
+        if mask is not None:
+            fringe.getMaskedImage().getMask().__ior__(mask)
 
         if self.config.pedestal:
             stats = afwMath.StatisticsControl()
