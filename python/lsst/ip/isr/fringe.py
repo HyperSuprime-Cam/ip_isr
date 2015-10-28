@@ -83,7 +83,7 @@ class FringeTask(Task):
 
         if not self.checkFilter(exposure):
             return
-        fringes = self.readFringes(dataRef, assembler=assembler)
+        fringes = self.readFringes(dataRef, assembler=assembler, mask=exposure.getMaskedImage().getMask())
         expFringes = self.measureExposure(exposure, fringes.positions, title="Science")
         solution = self.solve(expFringes, fringes.fluxes)
         self.subtract(exposure, fringes.fringes, solution)
@@ -94,7 +94,7 @@ class FringeTask(Task):
         """Check whether we should fringe-subtract the science exposure"""
         return exposure.getFilter().getName() in self.config.filters
 
-    def readFringes(self, dataRef, assembler=None):
+    def readFringes(self, dataRef, assembler=None, mask=None):
         """Read the fringe frame(s) and measure fringe amplitudes.
 
         The current implementation assumes only a single fringe frame and
@@ -105,6 +105,7 @@ class FringeTask(Task):
 
         @param dataRef     Data reference for the science exposure
         @param assembler   An instance of AssembleCcdTask (for assembling fringe frames)
+        @param mask        Mask to apply to fringe frame
         @return Struct(fringes: list of fringe frames;
                        fluxes: fringe amplitues;
                        positions: array of (x,y) for fringe amplitude measurements)
@@ -118,6 +119,8 @@ class FringeTask(Task):
             raise RuntimeError("Unable to retrieve fringe for %s: %s" % (dataRef.dataId, e))
         if assembler is not None:
             fringe = assembler.assembleCcd(fringe)
+        if mask is not None:
+            fringe.getMaskedImage().getMask().__ior__(mask)
 
         if self.config.pedestal:
             stats = afwMath.StatisticsControl()
@@ -204,6 +207,15 @@ class FringeTask(Task):
         fringes = fringes[good]
         oldNum = len(science)
 
+        # Up-front rejection to get rid of extreme, potentially troublesome values
+        # (e.g., fringe apertures that fall on objects).
+        good = select(science, self.config.clip)
+        for ff in range(fringes.shape[1]):
+            good &= select(fringes[:,ff], self.config.clip)
+        science = science[good]
+        fringes = fringes[good]
+        oldNum = len(science)
+
         for i in range(self.config.iterations):
             solution = self._solve(science, fringes)
             resid = science - numpy.sum(solution * fringes, 1)
@@ -222,7 +234,7 @@ class FringeTask(Task):
                         fig.canvas._tkcanvas._root().lift() # == Tk's raise
                     except:
                         pass
-                    ax = fig.add_axes((0.1, 0.1, 0.8, 0.8))
+                    ax = fig.add_subplot(1, 1, 1)
                     adjust = science.copy()
                     others = set(range(fringes.shape[1]))
                     others.discard(j)
@@ -304,8 +316,14 @@ def stdev(vector):
     @param vector  Array of values
     @return Standard deviation
     """
-    num = len(vector)
-    vector = vector.copy()
-    vector.sort()
-    return 0.74 * (vector[int(0.75 * num)] - vector[int(0.25 * num)])
+    q1, q3 = numpy.percentile(vector, (25, 75))
+    return 0.74*(q3-q1)
+
+def select(vector, clip):
+    """Select values within 'clip' standard deviations of the median
+
+    Returns a boolean array.
+    """
+    q1, q2, q3 = numpy.percentile(vector, (25, 50, 75))
+    return numpy.abs(vector - q2) < clip*0.74*(q3 - q1)
 
