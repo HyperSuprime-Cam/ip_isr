@@ -73,7 +73,7 @@ class MultipleFringeDataRef(object):
 
 class MultipleFringeTask(FringeTask):
     """A FringeTask that reads multiple fringe frames"""
-    def readFringes(self, dataRef, assembler=None):
+    def readFringes(self, dataRef, assembler=None, mask=None):
         fringeList = dataRef.get()
         rng = numpy.random.RandomState(seed=0)
         positions = self.generatePositions(fringeList[0], rng)
