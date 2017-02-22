@@ -16,7 +16,6 @@ def runIsr():
     isrConfig.doFlat = True
     isrConfig.doFringe = False #There is no fringe frame for this example
 
-    isrConfig.assembleCcd.setGain = False
     isrTask = IsrTask(config=isrConfig)
 
     #Make raw, flat and dark exposures
