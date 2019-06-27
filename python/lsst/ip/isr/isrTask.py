@@ -1268,7 +1268,7 @@ class IsrTask(pipeBase.PipelineTask, pipeBase.CmdLineTask):
             interpExp = ccdExposure.clone()
             with self.flatContext(interpExp, flat, dark):
                 isrFunctions.interpolateFromMask(
-                    maskedImage=ccdExposure.getMaskedImage(),
+                    maskedImage=interpExp.getMaskedImage(),
                     fwhm=self.config.fwhm,
                     growSaturatedFootprints=self.config.growSaturationFootprintSize,
                     maskNameList=self.config.maskListToInterpolate
@@ -1345,6 +1345,24 @@ class IsrTask(pipeBase.PipelineTask, pipeBase.CmdLineTask):
         if self.config.doSaveInterpPixels:
             preInterpExp = ccdExposure.clone()
 
+        # Reset and interpolate bad pixels.
+        #
+        # Large contiguous bad regions (which should have the BAD mask
+        # bit set) should have their values set to the image median.
+        # This group should include defects and bad amplifiers. As the
+        # area covered by these defects are large, there's little
+        # reason to expect that interpolation would provide a more
+        # useful value.
+        #
+        # Smaller defects can be safely interpolated after the larger
+        # regions have had their pixel values reset.  This ensures
+        # that the remaining defects adjacent to bad amplifiers (as an
+        # example) do not attempt to interpolate extreme values.
+        if self.config.doSetBadRegions:
+            badPixelCount, badPixelValue = isrFunctions.setBadRegions(ccdExposure)
+            if badPixelCount > 0:
+                self.log.info("Set %d BAD pixels to %f." % (badPixelCount, badPixelValue))
+
         if self.config.doInterpolate:
             self.log.info("Interpolating masked pixels.")
             isrFunctions.interpolateFromMask(
@@ -1353,12 +1371,6 @@ class IsrTask(pipeBase.PipelineTask, pipeBase.CmdLineTask):
                 growSaturatedFootprints=self.config.growSaturationFootprintSize,
                 maskNameList=list(self.config.maskListToInterpolate)
             )
-
-        if self.config.doSetBadRegions:
-            # This is like an interpolation.
-            badPixelCount, badPixelValue = isrFunctions.setBadRegions(ccdExposure)
-            if badPixelCount > 0:
-                self.log.info("Set %d BAD pixels to %f." % (badPixelCount, badPixelValue))
 
         self.roughZeroPoint(ccdExposure)
 
@@ -1633,6 +1645,7 @@ class IsrTask(pipeBase.PipelineTask, pipeBase.CmdLineTask):
                                             self.config.suspectMaskName])
         if numpy.all(maskView.getArray() & maskVal > 0):
             badAmp = True
+            maskView |= maskView.getPlaneBitMask("BAD")
 
         return badAmp
 
@@ -2227,6 +2240,11 @@ class IsrTask(pipeBase.PipelineTask, pipeBase.CmdLineTask):
             display = getDisplay(frame)
             display.scale('asinh', 'zscale')
             display.mtv(exposure)
+            prompt = "Press Enter to continue [c]... "
+            while True:
+                ans = input(prompt).lower()
+                if ans in ("", "c",):
+                    break
 
 
 class FakeAmp(object):
